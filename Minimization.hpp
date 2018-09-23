@@ -7,6 +7,10 @@
 #include <vector>
 
 namespace Minimization {
+
+    /**
+        DIM is the dimention of variables.
+    */
     template<int DIM>
     bool minimization(
         const AutomaticDifferentiation::FuncPtr<double,DIM>& f,
@@ -27,6 +31,9 @@ namespace Minimization {
         return true;
     }
 
+    /**
+        DIM is the dimention of variables.
+    */
     template<int DIM>
     bool minimization(
         std::function<AutomaticDifferentiation::FuncPtr<double,DIM>(const std::array<AutomaticDifferentiation::FuncPtr<double,DIM>,DIM>&)> f,
@@ -37,6 +44,11 @@ namespace Minimization {
         return minimization(y,x);
     }
 
+    /**
+        DIM is the dimention of variables, NUM_EQUALITY is the number of equality_constraints.
+        Note: the variable x_val should have the "DIM+NUM_EQUALITY" dimension,
+        such that the extended dimention will be used for the Lagrange multipliers method.
+    */
     template<int DIM, int NUM_EQUALITY>
     bool minimization_with_equality_constraints(
         std::function<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>(const std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>,DIM+NUM_EQUALITY>&)> f,
