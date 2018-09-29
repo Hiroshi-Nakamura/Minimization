@@ -69,7 +69,6 @@ namespace Minimization {
         return Minimization::minimization(y,x_val);
     }
 
-#if 0
     /**
         DIM is the dimention of variables,
         NUM_EQUALITY is the number of equality_constraints and NUM_INEQUALITY is the number of inequality_constraints.
@@ -85,17 +84,31 @@ namespace Minimization {
         unsigned int max_num_iteration=1000)
     {
         std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>,DIM+NUM_EQUALITY+NUM_INEQUALITY> x=AutomaticDifferentiation::createVariables<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>();
-        AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY> y=f(x);
+        AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY> y_base=f(x);
         for(size_t i=0; i<NUM_EQUALITY; i++){
             AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY> z=g_eq[i](x);
-            y=y+x[DIM+i]*z;
+            y_base=y_base+x[DIM+i]*z;
         }
+        if(!Minimization::minimization(y_base,x_val)){ return false; }
+
+        std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>,NUM_INEQUALITY> z_in;
         for(size_t i=0; i<NUM_INEQUALITY; i++){
-            AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY> z=g_in[i](x);
-            y=y+/*x[DIM+NUM_EQUALITY+i]*/x[DIM+NUM_EQUALITY+i]*z; /// lamda=x[DIM*NUM_EQUALITY+i]^2 such that lamda should be >=0, because of an inequality constraint.
+            z_in[i]=g_in[i](x);
         }
-        return Minimization::minimization(y,x_val);
+        while(true){
+            auto y=y_base;
+            bool flag_break=true;
+            for(size_t i=0; i<NUM_INEQUALITY; i++){
+                if( 0<(*z_in[i])(x_val) ){
+//                    std::cout << "Inequality #" << i << " is not satisfied." << std::endl;
+                    y=y+x[DIM+NUM_EQUALITY+i]*z_in[i];
+                    flag_break=false;
+                }
+            }
+            if(flag_break) break;
+            if(!Minimization::minimization(y,x_val)){ return false; }
+        }
+        return true;
     }
-#endif // 0
 }
 #endif // MINIMIZATION_HPP_INCLUDED
