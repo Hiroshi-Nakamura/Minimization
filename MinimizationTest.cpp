@@ -9,13 +9,13 @@ T f(const std::array<T,DIM>& x)
 
 template<typename T, int DIM> T g_eq(const std::array<T,DIM>& x)
 {
-    return 4.0*x[0]+x[1]+2.0*x[2]-2.0;
+    return x[0]+x[1]+x[2]-2.0;
 }
 
 template<typename T, int DIM> T g_in(const std::array<T,DIM>& x)
 {
-//    return x[0]*x[0]+x[1]*x[1]+x[2]*x[2]-1.0;
-    return 1.0-x[0]*x[0]-x[1]*x[1]-x[2]*x[2];
+    return x[0]*x[0]+x[1]*x[1]+x[2]*x[2]-1.0;
+//    return 1.0-x[0]*x[0]-x[1]*x[1]-x[2]*x[2];
 }
 
 int main(int argc, char** argv)
