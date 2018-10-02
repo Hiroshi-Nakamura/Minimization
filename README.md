@@ -1,5 +1,5 @@
 # Minimization
-Implementation of Non-Linear Minimization by using of Newton method.
+Implementation of Non-Linear Minimization with constraints by using of Newton method.
 This library needs "AutomaticDifferentiation.hpp", which you can get from my other repository.
 
 Because of using automatic differentiation, the cost function and constraint functions should be implemented with templete.
