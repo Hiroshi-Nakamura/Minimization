@@ -19,7 +19,7 @@ namespace Minimization {
     bool minimization(
         const AutomaticDifferentiation::FuncPtr<double,DIM>& f,
         Eigen::Matrix<double,DIM,1>& x,
-        unsigned int max_num_iteration=1000)
+        const unsigned int max_num_iteration=1000)
     {
         auto jac=AutomaticDifferentiation::jacobian<double,DIM>(f);
         auto hes=AutomaticDifferentiation::hessian<double,DIM>(f);
@@ -36,13 +36,14 @@ namespace Minimization {
     }
 
     /**
-        DIM is the dimention of variables.
+        Variant of minimization() for usability.
+        The second argument is acceptable for std::function.
     */
     template<int DIM>
     bool minimization(
-        std::function<AutomaticDifferentiation::FuncPtr<double,DIM>(const std::array<AutomaticDifferentiation::FuncPtr<double,DIM>,DIM>&)> f,
+        const std::function<AutomaticDifferentiation::FuncPtr<double,DIM>(const std::array<AutomaticDifferentiation::FuncPtr<double,DIM>,DIM>&)>& f,
         Eigen::Matrix<double,DIM,1>& x,
-        unsigned int max_num_iteration=1000)
+        const unsigned int max_num_iteration=1000)
     {
         AutomaticDifferentiation::FuncPtr<double,DIM> y=f(AutomaticDifferentiation::createVariables<double,DIM>());
         return minimization(y,x);
@@ -55,19 +56,58 @@ namespace Minimization {
     */
     template<int DIM, int NUM_EQUALITY>
     bool minimization_with_equality_constraints(
-        std::function<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>(const std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>,DIM+NUM_EQUALITY>&)> f,
-        std::array<std::function<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>(const std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>,DIM+NUM_EQUALITY>&)>,NUM_EQUALITY> g,
+        const std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>,DIM+NUM_EQUALITY>& x,
+        const AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>& y,
+        const std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>,NUM_EQUALITY>& z,
         Eigen::Matrix<double,DIM+NUM_EQUALITY,1>& x_val,
-        unsigned int max_num_iteration=1000)
+        const unsigned int max_num_iteration=1000)
+    {
+        AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY> y_extended=y;
+        for(size_t i=0; i<NUM_EQUALITY; i++){
+            y_extended=y_extended+x[DIM+i]*z[i];
+        }
+        return Minimization::minimization(y_extended,x_val,max_num_iteration);
+    }
+
+    /**
+        Variant of minimization_with_equality_constraints() for usability.
+        The argument of cost function is acceptable for std::function,
+        and the argument of constraints is acceptable for std::array<std::function>.
+    */
+    template<int DIM, int NUM_EQUALITY>
+    bool minimization_with_equality_constraints(
+        const std::function<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>(const std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>,DIM+NUM_EQUALITY>&)>& f,
+        const std::array<std::function<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>(const std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>,DIM+NUM_EQUALITY>&)>,NUM_EQUALITY>& g,
+        Eigen::Matrix<double,DIM+NUM_EQUALITY,1>& x_val,
+        const unsigned int max_num_iteration=1000)
     {
         std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>,DIM+NUM_EQUALITY> x=AutomaticDifferentiation::createVariables<double,DIM+NUM_EQUALITY>();
         AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY> y=f(x);
+        std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>,NUM_EQUALITY> z;
         for(size_t i=0; i<NUM_EQUALITY; i++){
-            AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY> z=g[i](x);
-            y=y+x[DIM+i]*z;
+            z[i]=g[i](x);
         }
-        return Minimization::minimization(y,x_val);
+        return Minimization::minimization_with_equality_constraints<DIM,NUM_EQUALITY>(x,y,z,x_val,max_num_iteration);
     }
+
+    /**
+        Variant of minimization_with_equality_constraints() for usability.
+        The argument of cost function is acceptable for std::function,
+        and the argument of constraints is acceptable for std::function, which return std::array.
+    */
+    template<int DIM, int NUM_EQUALITY>
+    bool minimization_with_equality_constraints(
+        const std::function<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>(const std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>,DIM+NUM_EQUALITY>&)>& f,
+        const std::function< std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>,NUM_EQUALITY>(const std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>,DIM+NUM_EQUALITY>&) >& g,
+        Eigen::Matrix<double,DIM+NUM_EQUALITY,1>& x_val,
+        const unsigned int max_num_iteration=1000)
+    {
+        std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>,DIM+NUM_EQUALITY> x=AutomaticDifferentiation::createVariables<double,DIM+NUM_EQUALITY>();
+        AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY> y=f(x);
+        std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY>,NUM_EQUALITY> z=g(x);
+        return Minimization::minimization_with_equality_constraints(x,y,z,x_val,max_num_iteration);
+    }
+
 
     /**
         DIM is the dimention of variables,
@@ -77,38 +117,59 @@ namespace Minimization {
     */
     template<int DIM, int NUM_EQUALITY, int NUM_INEQUALITY>
     bool minimization_with_constraints(
-        std::function<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>(const std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>,DIM+NUM_EQUALITY+NUM_INEQUALITY>&)> f,
-        std::array<std::function<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>(const std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>,DIM+NUM_EQUALITY+NUM_INEQUALITY>&)>,NUM_EQUALITY> g_eq,
-        std::array<std::function<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>(const std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>,DIM+NUM_EQUALITY+NUM_INEQUALITY>&)>,NUM_INEQUALITY> g_in,
+        const std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>,DIM+NUM_EQUALITY+NUM_INEQUALITY>& x,
+        const AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>& y,
+        const std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>,NUM_EQUALITY>& z_eq,
+        const std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>,NUM_INEQUALITY>& z_in,
         Eigen::Matrix<double,DIM+NUM_EQUALITY+NUM_INEQUALITY,1>& x_val,
-        unsigned int max_num_iteration=1000)
+        const unsigned int max_num_iteration=1000)
     {
-        std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>,DIM+NUM_EQUALITY+NUM_INEQUALITY> x=AutomaticDifferentiation::createVariables<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>();
-        AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY> y_base=f(x);
+        AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY> y_base=y;
         for(size_t i=0; i<NUM_EQUALITY; i++){
-            AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY> z=g_eq[i](x);
-            y_base=y_base+x[DIM+i]*z;
+            y_base=y_base+x[DIM+i]*z_eq[i];
         }
-        if(!Minimization::minimization(y_base,x_val)){ return false; }
+        if(!Minimization::minimization(y_base,x_val,max_num_iteration)){ return false; }
 
-        std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>,NUM_INEQUALITY> z_in;
-        for(size_t i=0; i<NUM_INEQUALITY; i++){
-            z_in[i]=g_in[i](x);
-        }
         while(true){
-            auto y=y_base;
+            auto y_extended=y_base;
             bool flag_break=true;
             for(size_t i=0; i<NUM_INEQUALITY; i++){
                 if( 0<(*z_in[i])(x_val) ){
 //                    std::cout << "Inequality #" << i << " is not satisfied." << std::endl;
-                    y=y+x[DIM+NUM_EQUALITY+i]*z_in[i];
+                    y_extended=y_extended+x[DIM+NUM_EQUALITY+i]*z_in[i];
                     flag_break=false;
                 }
             }
             if(flag_break) break;
-            if(!Minimization::minimization(y,x_val)){ return false; }
+            if(!Minimization::minimization(y_extended,x_val,max_num_iteration)){ return false; }
         }
         return true;
+    }
+
+    /**
+        Variant of minimization_with_constraints() for usability.
+        The argument of cost function is acceptable for std::function,
+        and the argument of constraints is acceptable for std::function, which return std::array.
+    */
+    template<int DIM, int NUM_EQUALITY, int NUM_INEQUALITY>
+    bool minimization_with_constraints(
+        const std::function<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>(const std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>,DIM+NUM_EQUALITY+NUM_INEQUALITY>&)>& f,
+        const std::array<std::function<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>(const std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>,DIM+NUM_EQUALITY+NUM_INEQUALITY>&)>,NUM_EQUALITY>& g_eq,
+        const std::array<std::function<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>(const std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>,DIM+NUM_EQUALITY+NUM_INEQUALITY>&)>,NUM_INEQUALITY>& g_in,
+        Eigen::Matrix<double,DIM+NUM_EQUALITY+NUM_INEQUALITY,1>& x_val,
+        const unsigned int max_num_iteration=1000)
+    {
+        std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>,DIM+NUM_EQUALITY+NUM_INEQUALITY> x=AutomaticDifferentiation::createVariables<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>();
+        AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY> y=f(x);
+        std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>,NUM_INEQUALITY> z_eq;
+        for(size_t i=0; i<NUM_INEQUALITY; i++){
+            z_eq[i]=g_eq[i](x);
+        }
+        std::array<AutomaticDifferentiation::FuncPtr<double,DIM+NUM_EQUALITY+NUM_INEQUALITY>,NUM_INEQUALITY> z_in;
+        for(size_t i=0; i<NUM_INEQUALITY; i++){
+            z_in[i]=g_in[i](x);
+        }
+        return minimization_with_constraints<DIM,NUM_EQUALITY,NUM_INEQUALITY>(x,y,z_eq,z_in,x_val,max_num_iteration);
     }
 }
 #endif // MINIMIZATION_HPP_INCLUDED
