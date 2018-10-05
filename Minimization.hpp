@@ -11,7 +11,8 @@ namespace Minimization {
 
     using namespace AutomaticDifferentiation;
 
-    std::vector<std::function< FuncPtr<double>(const std::vector<FuncPtr<double>>&) >> NO_CONSTRAINT;
+    const std::vector<std::function< FuncPtr<double>(const std::vector<FuncPtr<double>>&) >> NO_CONSTRAINT_VEC;
+    const std::function< std::vector<FuncPtr<double>>(const std::vector<FuncPtr<double>>&) > NO_CONSTRAINT_FUN=nullptr;
 
     /**
         minimization without any constraints.
@@ -80,7 +81,8 @@ namespace Minimization {
     /**
         Variant of minimization_with_equality_constraints() for usability.
         The argument of cost function is acceptable for std::function,
-        and the argument of constraints is acceptable for std::vector<std::function>.    */
+        and the argument of constraints is acceptable for std::vector<std::function>.
+    */
     bool minimization_with_equality_constraints(
         const std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>& f,
         const std::vector<std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>>& g,
@@ -158,7 +160,7 @@ namespace Minimization {
     /**
         Variant of minimization_with_constraints() for usability.
         The argument of cost function is acceptable for std::function,
-        and the argument of constraints is acceptable for std::function, which return std::array.
+        and the argument of constraints is acceptable for std::vector<std::function>.
     */
     bool minimization_with_constraints(
         const std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>& f,
@@ -182,6 +184,29 @@ namespace Minimization {
         }
         return minimization_with_constraints(x,y,z_eq,z_in,x_val,max_num_iteration);
     }
+
+    /**
+        Variant of minimization_with_constraints() for usability.
+        The argument of cost function is acceptable for std::function,
+        and the argument of constraints is acceptable for std::function, which return std::vector.
+    */
+    bool minimization_with_constraints(
+        const std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>& f,
+        const std::function< std::vector<FuncPtr<double>>(const std::vector<FuncPtr<double>>&) >& g_eq,
+        const std::function< std::vector<FuncPtr<double>>(const std::vector<FuncPtr<double>>&) >& g_in,
+        Eigen::VectorXd& x_val,
+        const unsigned int max_num_iteration=1000)
+    {
+        size_t dim=x_val.rows();
+        std::vector<FuncPtr<double>> x=createVariables<double>(dim);
+        FuncPtr<double> y=f(x);
+        std::vector<FuncPtr<double>> z_eq;
+        if(g_eq!=nullptr){ z_eq=g_eq(x); }
+        std::vector<FuncPtr<double>> z_in;
+        if(g_in!=nullptr){ z_in=g_in(x); }
+        return minimization_with_constraints(x,y,z_eq,z_in,x_val,max_num_iteration);
+    }
+
 }
 
 #endif // MINIMIZATION_HPP_INCLUDED
