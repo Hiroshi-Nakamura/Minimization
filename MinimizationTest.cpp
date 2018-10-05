@@ -43,7 +43,6 @@ int main(int argc, char** argv)
             x_val << 0.0, 0.0, 0.0;
             minimization_with_constraints(
                 f<FuncPtr<double>>,
-//                NO_CONSTRAINT<4>,
                 {g_eq<FuncPtr<double>>},
                 {g_in<FuncPtr<double>>},
                 x_val);
