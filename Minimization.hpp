@@ -13,11 +13,12 @@ namespace Minimization {
 
     const std::vector<std::function< FuncPtr<double>(const std::vector<FuncPtr<double>>&) >> NO_CONSTRAINT_VEC;
     const std::function< std::vector<FuncPtr<double>>(const std::vector<FuncPtr<double>>&) > NO_CONSTRAINT_FUN=nullptr;
+    constexpr double EPSILON=1.0e-9;
 
     /**
         minimization without any constraints.
     */
-    bool minimization(
+    inline bool minimization(
         const FuncPtr<double>& f,
         Eigen::VectorXd& x,
         const unsigned int max_num_iteration=1000)
@@ -29,7 +30,7 @@ namespace Minimization {
             Eigen::MatrixXd jac_val=jac(x);
             Eigen::MatrixXd hes_val=hes(x);
             Eigen::VectorXd delta_x=hes_val.fullPivLu().solve(-jac_val);
-            if(delta_x.norm()<10e-10) return true;
+            if(delta_x.norm()<EPSILON) return true;
             if(max_num_iteration<i) return false;
             x += delta_x;
 //            std::cout << "x=" << std::endl << x << std::endl;
@@ -41,7 +42,7 @@ namespace Minimization {
         Variant of minimization() for usability.
         The second argument is acceptable for std::function.
     */
-    bool minimization(
+    inline bool minimization(
         const std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>& f,
         Eigen::VectorXd& x_val,
         const unsigned int max_num_iteration=1000)
@@ -54,7 +55,7 @@ namespace Minimization {
     /**
         minimization with equality constraints.
     */
-    bool minimization_with_equality_constraints(
+    inline bool minimization_with_equality_constraints(
         const std::vector<FuncPtr<double>>& x,
         const FuncPtr<double>& y,
         const std::vector<FuncPtr<double>>& z,
@@ -83,7 +84,7 @@ namespace Minimization {
         The argument of cost function is acceptable for std::function,
         and the argument of constraints is acceptable for std::vector<std::function>.
     */
-    bool minimization_with_equality_constraints(
+    inline bool minimization_with_equality_constraints(
         const std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>& f,
         const std::vector<std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>>& g,
         Eigen::VectorXd& x_val,
@@ -105,7 +106,7 @@ namespace Minimization {
         The argument of cost function is acceptable for std::function,
         and the argument of constraints is acceptable for std::function, which return std::vector.
     */
-    bool minimization_with_equality_constraints(
+    inline bool minimization_with_equality_constraints(
         const std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>& f,
         const std::function< std::vector<FuncPtr<double>>(const std::vector<FuncPtr<double>>&) >& g,
         Eigen::VectorXd& x_val,
@@ -122,7 +123,7 @@ namespace Minimization {
     /**
         minimization with equality constraints of both of equality and inequality.
     */
-    bool minimization_with_constraints(
+    inline bool minimization_with_constraints(
         const std::vector<FuncPtr<double>>& x,
         const FuncPtr<double>& y,
         const std::vector<FuncPtr<double>>& z_eq,
@@ -139,10 +140,10 @@ namespace Minimization {
             std::vector<FuncPtr<double>> z_eq_extended=z_eq;
             bool flag=true;
             /// check inequality constraints.
-            for(auto z: z_in){
-                if( 0<(*z)(x_val) ){
-//                    std::cout << "Inequality #" << i << " is not satisfied." << std::endl;
-                    z_eq_extended.push_back(z);
+            for(size_t i=0; i<z_in.size(); i++){
+                if( EPSILON<(*z_in[i])(x_val) ){
+                    std::cout << "Inequality #" << i << " is not satisfied." << std::endl;
+                    z_eq_extended.push_back(z_in[i]);
                     flag=false;
                 }
             }
@@ -151,6 +152,7 @@ namespace Minimization {
                 break;
             }else{
                 /// if not safisfied yet, again calculate with the inequality constrains.
+                std::cout << "re-try minimization." << std::endl;
                 if(!minimization_with_equality_constraints(x,y,z_eq_extended,x_val,max_num_iteration)){ return false;}
             }
         }
@@ -162,7 +164,7 @@ namespace Minimization {
         The argument of cost function is acceptable for std::function,
         and the argument of constraints is acceptable for std::vector<std::function>.
     */
-    bool minimization_with_constraints(
+    inline bool minimization_with_constraints(
         const std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>& f,
         const std::vector<std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>>& g_eq,
         const std::vector<std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>>& g_in,
@@ -190,7 +192,7 @@ namespace Minimization {
         The argument of cost function is acceptable for std::function,
         and the argument of constraints is acceptable for std::function, which return std::vector.
     */
-    bool minimization_with_constraints(
+    inline bool minimization_with_constraints(
         const std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>& f,
         const std::function< std::vector<FuncPtr<double>>(const std::vector<FuncPtr<double>>&) >& g_eq,
         const std::function< std::vector<FuncPtr<double>>(const std::vector<FuncPtr<double>>&) >& g_in,
