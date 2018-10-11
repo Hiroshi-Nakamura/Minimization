@@ -13,11 +13,11 @@ Because of using automatic differentiation, the cost function and constraint fun
     
 The function argument is `std::vector`. 
 
-If you want no-constraint minimization, call Minimization::minimization() function.
+If you want no-constraint minimization, call `Minimization::minimization()` function.
 The first argument ('std::function') is cost function, which you want to minimization.
 The second argument ('std::vector<double>') is an initial value as an input, 
 and the value will be updated by the solustion as an output.
 Note that the dimension of the second argument should be the same which you want to solve for x.
 
-If you want with-constraint minimimzation, call Minimization::minimization_with_constraint() function.
-The first and the 4th argument is cost function and x (initial / solution), smaley as minimization().
+If you want with-constraint minimimzation, call `Minimization::minimization_with_constraint()` function.
+The first and the 4th argument is cost function and x (initial / solution), similarly as `minimization()`.
