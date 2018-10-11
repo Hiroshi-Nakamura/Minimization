@@ -11,8 +11,6 @@ The example are shown the below:
     {
         return (x[0]-1.0)*(x[0]-1.0)+(x[1]-1.0)*(x[1]-1.0)+(x[2]-1.0)*(x[2]-1.0);
     }
-    
-The function argument is `std::vector`. 
 
 If you want no-constraint minimization, call `Minimization::minimization()` function.
 The first argument ('std::function') is cost function, which you want to minimization.
