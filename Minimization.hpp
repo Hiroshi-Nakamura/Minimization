@@ -14,6 +14,7 @@ namespace Minimization {
     const std::vector<std::function< FuncPtr<double>(const std::vector<FuncPtr<double>>&) >> NO_CONSTRAINT_VEC;
     const std::function< std::vector<FuncPtr<double>>(const std::vector<FuncPtr<double>>&) > NO_CONSTRAINT_FUN=nullptr;
     constexpr double EPSILON=1.0e-9;
+    constexpr double EPSILON_INEQUALITY=1.0e-8;
 
     /**
         minimization without any constraints.
@@ -136,14 +137,17 @@ namespace Minimization {
         /// calculate without inequality constraints
         if(!minimization_with_equality_constraints(x,y,z_eq,x_val,max_num_iteration)){ return false; }
 
+        std::vector<bool> flag_in(z_in.size(),true);
         while(true){
-            std::vector<FuncPtr<double>> z_eq_extended=z_eq;
-            bool flag=true;
             /// check inequality constraints.
+            bool flag=true;
             for(size_t i=0; i<z_in.size(); i++){
-                if( EPSILON<(*z_in[i])(x_val) ){
+                if( EPSILON_INEQUALITY<(*z_in[i])(x_val) ){
+                    if(!flag_in[i]){ /// also in privious trial, cannot find a solution.
+                        throw std::string("Cannot find solution satisfied #")+std::to_string(i)+std::string(" inequation.");
+                    }
                     std::cout << "Inequality #" << i << " is not satisfied." << std::endl;
-                    z_eq_extended.push_back(z_in[i]);
+                    flag_in[i]=false;
                     flag=false;
                 }
             }
@@ -153,6 +157,13 @@ namespace Minimization {
             }else{
                 /// if not safisfied yet, again calculate with the inequality constrains.
                 std::cout << "re-try minimization." << std::endl;
+                std::vector<FuncPtr<double>> z_eq_extended=z_eq;
+                for(size_t i=0; i<z_in.size(); i++){
+                    if( !flag_in[i] ){
+                        std::cout << "Inequality #" << i << " will be used as an equality constraint." << std::endl;
+                        z_eq_extended.push_back(z_in[i]);
+                    }
+                }
                 if(!minimization_with_equality_constraints(x,y,z_eq_extended,x_val,max_num_iteration)){ return false;}
             }
         }
