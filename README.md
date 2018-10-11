@@ -5,7 +5,7 @@ which is implemented in "AutomaticDifferentiation.hpp", and which you can get fr
 In "MinimizationTest.cpp", you can see how to use this library.
 
 Because of using automatic differentiation, the cost function and constraint functions should be implemented with templete.
-For example are shown the below:
+The example are shown the below:
 
     template <typename T> T f(const std::vector<T>& x)
     {
