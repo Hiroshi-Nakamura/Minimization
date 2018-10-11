@@ -4,7 +4,7 @@ Implementation of Non-Linear Minimization with constraints by using of Newton me
 
 Because of using automatic differentiation, the cost function and constraint functions should be implemented with templete.
 
-    template <typename T,int DIM> T f(const std::vector<T>& x)
+    template <typename T> T f(const std::vector<T>& x)
     {
         return (x[0]-1.0)*(x[0]-1.0)+(x[1]-1.0)*(x[1]-1.0)+(x[2]-1.0)*(x[2]-1.0);
     }
