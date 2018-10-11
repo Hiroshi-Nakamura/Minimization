@@ -1,6 +1,6 @@
 # Minimization
 This provides you Non-Linear Minimization with Constraints by using of Newton method.
-For Hessian calculation in Newton method, Automatic Differentiation techniqu will be used,
+For Hessian calculation in Newton method, Automatic Differentiation technique will be used,
 which is inplemented in "AutomaticDifferentiation.hpp" is needed, which you can get from my other repository.
 
 Because of using automatic differentiation, the cost function and constraint functions should be implemented with templete.
