@@ -20,6 +20,6 @@ Note that the dimension of the second argument should be the same which you want
 
 If you want with-constraint minimimzation, call `Minimization::minimization_with_constraint()` function.
 The first and the 4th argument is cost function and x (initial / solution), similarly as `minimization()`.
-Or if the constraints are only equalities, `Minimization::minimization_with_equality_constraints()` function is possible.
+If the constraints are only equalities, `Minimization::minimization_with_equality_constraints()` function is possible.
 Here, the constrains are multiple. So the arguments are `std::vector<std::function>` 
 or `std::function<std::vector<double>(std::vector<double>)>`.
