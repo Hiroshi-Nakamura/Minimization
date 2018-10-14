@@ -14,7 +14,7 @@ namespace Minimization {
     const std::vector<std::function< FuncPtr<double>(const std::vector<FuncPtr<double>>&) >> NO_CONSTRAINT_VEC;
     const std::function< std::vector<FuncPtr<double>>(const std::vector<FuncPtr<double>>&) > NO_CONSTRAINT_FUN=nullptr;
     constexpr double EPSILON=1.0e-9;
-    constexpr double EPSILON_INEQUALITY=1.0e-8;
+    constexpr double EPSILON_INEQUALITY=1.0e-6;
 
     /**
         minimization without any constraints.
