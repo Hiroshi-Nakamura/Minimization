@@ -30,7 +30,12 @@ namespace Minimization {
         for(unsigned int i=0; true; i++){
             Eigen::MatrixXd jac_val=jac(x);
             Eigen::MatrixXd hes_val=hes(x);
-            Eigen::VectorXd delta_x=hes_val.fullPivLu().solve(-jac_val);
+            auto lu=hes_val.fullPivLu();
+            if(lu.rank()!=(signed int)dim){
+                std::cout << "Warning: rank deficient!" << std::endl
+                          << "rank: " << lu.rank() << " (should be " << dim << ")" << std::endl;
+            }
+            Eigen::VectorXd delta_x=lu.solve(-jac_val);
             if(delta_x.norm()<EPSILON) return true;
             if(max_num_iteration<i) return false;
             x += delta_x;
