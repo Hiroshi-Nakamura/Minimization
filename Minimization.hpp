@@ -28,6 +28,11 @@ namespace Minimization {
         MatFuncPtr<double> jac=jacobian<double>(f,dim);
         MatFuncPtr<double> hes=hessian<double>(f,dim);
         bool flag_deficient=false;
+#ifdef DEBUG
+        std::cout << "x:" << std::endl << x << std::endl;
+        std::vector<double> x_val(x.data(),x.data()+dim);
+        std::cout << "f(x)=" << (*f)(x_val) << std::endl;
+#endif
         for(unsigned int i=0; true; i++){
             Eigen::MatrixXd jac_val=jac(x);
             Eigen::MatrixXd hes_val=hes(x);
@@ -46,7 +51,11 @@ namespace Minimization {
             if(delta_x.norm()<EPSILON) return true;
             if(max_num_iteration<i) return false;
             x += delta_x;
-//            std::cout << "x=" << std::endl << x << std::endl;
+#ifdef DEBUG
+            std::cout << "x:" << std::endl << x << std::endl;
+            std::vector<double> x_val(x.data(),x.data()+dim);
+            std::cout << "f(x)=" << (*f)(x_val) << std::endl;
+#endif
         }
         return true;
     }
