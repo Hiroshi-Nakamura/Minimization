@@ -27,6 +27,7 @@ namespace Minimization {
         size_t dim=x.rows();
         MatFuncPtr<double> jac=jacobian<double>(f,dim);
         MatFuncPtr<double> hes=hessian<double>(f,dim);
+        bool flag_deficient=false;
         for(unsigned int i=0; true; i++){
             Eigen::MatrixXd jac_val=jac(x);
             Eigen::MatrixXd hes_val=hes(x);
@@ -34,6 +35,12 @@ namespace Minimization {
             if(lu.rank()!=(signed int)dim){
                 std::cout << "Warning: rank deficient!" << std::endl
                           << "rank: " << lu.rank() << " (should be " << dim << ")" << std::endl;
+                flag_deficient=true;
+            }else{
+                if(flag_deficient){
+                    std::cout << "Info: rank becomes sufficient." << std::endl;
+                    flag_deficient=false;
+                }
             }
             Eigen::VectorXd delta_x=lu.solve(-jac_val);
             if(delta_x.norm()<EPSILON) return true;
