@@ -38,8 +38,7 @@ namespace Minimization {
             Eigen::MatrixXd hes_val=hes(x);
             auto lu=hes_val.fullPivLu();
             if(lu.rank()!=(signed int)dim){
-                std::cout << "Warning: rank deficient!" << std::endl
-                          << "rank: " << lu.rank() << " (should be " << dim << ")" << std::endl;
+                std::cout << "Warning: rank deficient! rank is " << lu.rank() << " (should be " << dim << ")" << std::endl;
                 flag_deficient=true;
             }else{
                 if(flag_deficient){
