@@ -33,7 +33,7 @@ namespace Minimization {
         std::vector<double> x_val(x.data(),x.data()+dim);
         std::cout << "f(x)=" << (*f)(x_val) << std::endl;
 #endif
-        for(unsigned int i=0; true; i++){
+        for(unsigned int i=0; i<max_num_iteration; i++){
             Eigen::MatrixXd jac_val=jac(x);
             Eigen::MatrixXd hes_val=hes(x);
             auto lu=hes_val.fullPivLu();
@@ -48,7 +48,6 @@ namespace Minimization {
             }
             Eigen::VectorXd delta_x=lu.solve(-jac_val);
             if(delta_x.norm()<EPSILON) return true;
-            if(max_num_iteration<i) return false;
             x += delta_x;
 #ifdef DEBUG
             std::cout << "x:" << std::endl << x << std::endl;
@@ -56,7 +55,7 @@ namespace Minimization {
             std::cout << "f(x)=" << (*f)(x_val) << std::endl;
 #endif
         }
-        return true;
+        return false;
     }
 
     /**
@@ -94,7 +93,7 @@ namespace Minimization {
         }
         Eigen::VectorXd x_val_extended(dim+num_equality);
         x_val_extended.block(0,0,dim,1)=x_val;
-        x_val_extended.block(dim,0,num_equality,1).setZero();
+        x_val_extended.block(dim,0,num_equality,1).setOnes();
         bool rtn=minimization(y_extended,x_val_extended,max_num_iteration);
         x_val=x_val_extended.block(0,0,dim,1);
         return rtn;
