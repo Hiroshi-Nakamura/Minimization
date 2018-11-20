@@ -3,6 +3,7 @@
 
 #include "AutomaticDifferentiation.hpp"
 #include <eigen3/Eigen/LU>
+#include <eigen3/Eigen/IterativeLinearSolvers>
 #include <iostream>
 #include <vector>
 #include <cassert>
@@ -27,7 +28,9 @@ namespace Minimization {
         size_t dim=x.rows();
         MatFuncPtr<double> jac=jacobian<double>(f,dim);
         MatFuncPtr<double> hes=hessian<double>(f,dim);
+#ifndef USE_CONJUGATE_GRADIENT
         bool flag_deficient=false;
+#endif // USE_CONJUGATE_GRADIENT
 #ifdef DEBUG
         std::cout << "x:" << std::endl << x << std::endl;
         std::vector<double> x_val(x.data(),x.data()+dim);
@@ -36,6 +39,15 @@ namespace Minimization {
         for(unsigned int i=0; i<max_num_iteration; i++){
             Eigen::MatrixXd jac_val=jac(x);
             Eigen::MatrixXd hes_val=hes(x);
+#ifdef USE_CONJUGATE_GRADIENT
+            /// calculate delta_x, which satisfies the equation: H delta_x = -jac
+            /// direct method is calculating this simultaneous equations.
+            /// But the rank deficient of H may happen.
+            /// Avoiding this problem, Conjugate Gradient Method will be used.
+            Eigen::ConjugateGradient<Eigen::MatrixXd, Eigen::Lower|Eigen::Upper> cg;
+            cg.compute(hes_val);
+            Eigen::VectorXd delta_x=cg.solve(-jac_val);
+#else
             auto lu=hes_val.fullPivLu();
             if(lu.rank()!=(signed int)dim){
                 std::cout << "Warning: rank deficient! rank is " << lu.rank() << " (should be " << dim << ")" << std::endl;
@@ -47,6 +59,7 @@ namespace Minimization {
                 }
             }
             Eigen::VectorXd delta_x=lu.solve(-jac_val);
+#endif // USE_CONJUGATE_GRADIENT
             if(delta_x.norm()<EPSILON) return true;
             x += delta_x;
 #ifdef DEBUG

@@ -14,6 +14,7 @@
 				<Compiler>
 					<Add option="-O2" />
 					<Add option="-std=c++1z" />
+					<Add option="-DUSE_CONJUGATE_GRADIENT" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
