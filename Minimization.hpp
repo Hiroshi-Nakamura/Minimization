@@ -7,6 +7,7 @@
 #include <iostream>
 #include <vector>
 #include <cassert>
+#include <atomic>
 
 namespace Minimization {
 
@@ -17,6 +18,7 @@ namespace Minimization {
     constexpr unsigned int MAX_NUM_ITERATION=1000;
     constexpr double EPSILON=1.0e-9;
     constexpr double EPSILON_INEQUALITY=1.0e-6;
+    static std::atomic<bool> STOP_FLAG(false);
 
     /**
         minimization without any constraints.
@@ -25,7 +27,8 @@ namespace Minimization {
         const FuncPtr<double>& f,
         Eigen::VectorXd& x,
         const unsigned int max_num_iteration=MAX_NUM_ITERATION,
-        const double epsilon=EPSILON);
+        const double epsilon=EPSILON,
+        std::atomic<bool>& stop_flag=STOP_FLAG);
 
     /**
         Variant of minimization() for usability.
@@ -35,7 +38,8 @@ namespace Minimization {
         const std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>& f,
         Eigen::VectorXd& x_val,
         const unsigned int max_num_iteration=MAX_NUM_ITERATION,
-        const double epsilon=EPSILON);
+        const double epsilon=EPSILON,
+        std::atomic<bool>& stop_flag=STOP_FLAG);
 
     /**
         minimization with equality constraints.
@@ -46,7 +50,8 @@ namespace Minimization {
         const std::vector<FuncPtr<double>>& z,
         Eigen::VectorXd& x_val,
         const unsigned int max_num_iteration=MAX_NUM_ITERATION,
-        const double epsilon=EPSILON);
+        const double epsilon=EPSILON,
+        std::atomic<bool>& stop_flag=STOP_FLAG);
 
     /**
         Variant of minimization_with_equality_constraints() for usability.
@@ -58,7 +63,8 @@ namespace Minimization {
         const std::vector<std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>>& g,
         Eigen::VectorXd& x_val,
         const unsigned int max_num_iteration=MAX_NUM_ITERATION,
-        const double epsilon=EPSILON);
+        const double epsilon=EPSILON,
+        std::atomic<bool>& stop_flag=STOP_FLAG);
 
     /**
         Variant of minimization_with_equality_constraints() for usability.
@@ -70,7 +76,8 @@ namespace Minimization {
         const std::function< std::vector<FuncPtr<double>>(const std::vector<FuncPtr<double>>&) >& g,
         Eigen::VectorXd& x_val,
         const unsigned int max_num_iteration=MAX_NUM_ITERATION,
-        const double epsilon=EPSILON);
+        const double epsilon=EPSILON,
+        std::atomic<bool>& stop_flag=STOP_FLAG);
 
     /**
         minimization with equality constraints of both of equality and inequality.
@@ -83,7 +90,8 @@ namespace Minimization {
         Eigen::VectorXd& x_val,
         const unsigned int max_num_iteration=MAX_NUM_ITERATION,
         const double epsilon=EPSILON,
-        const double epsilon_inequality=EPSILON_INEQUALITY);
+        const double epsilon_inequality=EPSILON_INEQUALITY,
+        std::atomic<bool>& stop_flag=STOP_FLAG);
 
     /**
         Variant of minimization_with_constraints() for usability.
@@ -97,7 +105,8 @@ namespace Minimization {
         Eigen::VectorXd& x_val,
         const unsigned int max_num_iteration=MAX_NUM_ITERATION,
         const double epsilon=EPSILON,
-        const double epsilon_inequality=EPSILON_INEQUALITY);
+        const double epsilon_inequality=EPSILON_INEQUALITY,
+        std::atomic<bool>& stop_flag=STOP_FLAG);
 
     /**
         Variant of minimization_with_constraints() for usability.
@@ -111,7 +120,8 @@ namespace Minimization {
         Eigen::VectorXd& x_val,
         const unsigned int max_num_iteration=MAX_NUM_ITERATION,
         const double epsilon=EPSILON,
-        const double epsilon_inequality=EPSILON_INEQUALITY);
+        const double epsilon_inequality=EPSILON_INEQUALITY,
+        std::atomic<bool>& stop_flag=STOP_FLAG);
 }
 
 ///
@@ -122,7 +132,8 @@ inline bool Minimization::minimization(
     const FuncPtr<double>& f,
     Eigen::VectorXd& x,
     const unsigned int max_num_iteration,
-    const double epsilon)
+    const double epsilon,
+    std::atomic<bool>& stop_flag)
 {
     size_t dim=x.rows();
     MatFuncPtr<double> jac=jacobian<double>(f,dim);
@@ -133,7 +144,7 @@ inline bool Minimization::minimization(
     std::vector<double> x_val(x.data(),x.data()+dim);
     std::cout << "f(x)=" << (*f)(x_val) << std::endl;
 #endif
-    for(unsigned int i=0; i<max_num_iteration; i++){
+    for(unsigned int i=0; !(stop_flag.load())&& i<max_num_iteration; i++){
         Eigen::MatrixXd jac_val=jac(x);
         Eigen::MatrixXd hes_val=hes(x);
         /// Calculate delta_x, which satisfies the equation: H delta_x = -jac
@@ -171,11 +182,12 @@ inline bool Minimization::minimization(
     const std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>& f,
     Eigen::VectorXd& x_val,
     const unsigned int max_num_iteration,
-    const double epsilon)
+    const double epsilon,
+    std::atomic<bool>& stop_flag)
 {
     size_t dim=x_val.rows();
     FuncPtr<double> y=f(createVariables<double>(dim));
-    return minimization(y,x_val,epsilon);
+    return minimization(y,x_val,max_num_iteration,epsilon,stop_flag);
 }
 
 
@@ -185,7 +197,8 @@ inline bool Minimization::minimization_with_equality_constraints(
     const std::vector<FuncPtr<double>>& z,
     Eigen::VectorXd& x_val,
     const unsigned int max_num_iteration,
-    const double epsilon)
+    const double epsilon,
+    std::atomic<bool>& stop_flag)
 {
     assert((int)x.size()==x_val.rows());
     size_t dim=x_val.rows();
@@ -199,7 +212,7 @@ inline bool Minimization::minimization_with_equality_constraints(
     Eigen::VectorXd x_val_extended(dim+num_equality);
     x_val_extended.block(0,0,dim,1)=x_val;
     x_val_extended.block(dim,0,num_equality,1).setOnes();
-    bool rtn=minimization(y_extended,x_val_extended,max_num_iteration);
+    bool rtn=minimization(y_extended,x_val_extended,max_num_iteration,epsilon,stop_flag);
     x_val=x_val_extended.block(0,0,dim,1);
     return rtn;
 }
@@ -209,7 +222,8 @@ inline bool Minimization::minimization_with_equality_constraints(
     const std::vector<std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>>& g,
     Eigen::VectorXd& x_val,
     const unsigned int max_num_iteration,
-    const double epsilon)
+    const double epsilon,
+    std::atomic<bool>& stop_flag)
 {
     size_t dim=x_val.rows();
     size_t num_equality=g.size();
@@ -219,7 +233,7 @@ inline bool Minimization::minimization_with_equality_constraints(
     for(size_t i=0; i<num_equality; i++){
         z.push_back(std::move(g[i](x)));
     }
-    return minimization_with_equality_constraints(x,y,z,x_val,max_num_iteration);
+    return minimization_with_equality_constraints(x,y,z,x_val,max_num_iteration,epsilon,stop_flag);
 }
 
 inline bool Minimization::minimization_with_equality_constraints(
@@ -227,13 +241,14 @@ inline bool Minimization::minimization_with_equality_constraints(
     const std::function< std::vector<FuncPtr<double>>(const std::vector<FuncPtr<double>>&) >& g,
     Eigen::VectorXd& x_val,
     const unsigned int max_num_iteration,
-    const double epsilon)
+    const double epsilon,
+    std::atomic<bool>& stop_flag)
 {
     size_t dim=x_val.rows();
     std::vector<FuncPtr<double>> x=createVariables<double>(dim);
     FuncPtr<double> y=f(x);
     std::vector<FuncPtr<double>> z=g(x);
-    return minimization_with_equality_constraints(x,y,z,x_val,max_num_iteration);
+    return minimization_with_equality_constraints(x,y,z,x_val,max_num_iteration,epsilon,stop_flag);
 }
 
 inline bool Minimization::minimization_with_constraints(
@@ -244,12 +259,13 @@ inline bool Minimization::minimization_with_constraints(
     Eigen::VectorXd& x_val,
     const unsigned int max_num_iteration,
     const double epsilon,
-    const double epsilon_inequality)
+    const double epsilon_inequality,
+    std::atomic<bool>& stop_flag)
 {
     assert((int)x.size()==x_val.rows());
 
     /// calculate without inequality constraints
-    if(!minimization_with_equality_constraints(x,y,z_eq,x_val,max_num_iteration)){ return false; }
+    if(!minimization_with_equality_constraints(x,y,z_eq,x_val,max_num_iteration,epsilon,stop_flag)){ return false; }
 
     std::vector<bool> flag_in(z_in.size(),true);
     while(true){
@@ -278,7 +294,7 @@ inline bool Minimization::minimization_with_constraints(
                     z_eq_extended.push_back(z_in[i]);
                 }
             }
-            if(!minimization_with_equality_constraints(x,y,z_eq_extended,x_val,max_num_iteration)){ return false;}
+            if(!minimization_with_equality_constraints(x,y,z_eq_extended,x_val,max_num_iteration,epsilon,stop_flag)){ return false;}
         }
     }
     return true;
@@ -291,7 +307,8 @@ inline bool Minimization::minimization_with_constraints(
     Eigen::VectorXd& x_val,
     const unsigned int max_num_iteration,
     const double epsilon,
-    const double epsilon_inequality)
+    const double epsilon_inequality,
+    std::atomic<bool>& stop_flag)
 {
     size_t dim=x_val.rows();
     size_t num_equality=g_eq.size();
@@ -306,7 +323,7 @@ inline bool Minimization::minimization_with_constraints(
     for(size_t i=0; i<num_inequality; i++){
         z_in.push_back(std::move(g_in[i](x)));
     }
-    return minimization_with_constraints(x,y,z_eq,z_in,x_val,max_num_iteration);
+    return minimization_with_constraints(x,y,z_eq,z_in,x_val,max_num_iteration,epsilon,epsilon_inequality,stop_flag);
 }
 
 inline bool Minimization::minimization_with_constraints(
@@ -316,7 +333,8 @@ inline bool Minimization::minimization_with_constraints(
     Eigen::VectorXd& x_val,
     const unsigned int max_num_iteration,
     const double epsilon,
-    const double epsilon_inequality)
+    const double epsilon_inequality,
+    std::atomic<bool>& stop_flag)
 {
     size_t dim=x_val.rows();
     std::vector<FuncPtr<double>> x=createVariables<double>(dim);
@@ -325,6 +343,6 @@ inline bool Minimization::minimization_with_constraints(
     if(g_eq!=nullptr){ z_eq=g_eq(x); }
     std::vector<FuncPtr<double>> z_in;
     if(g_in!=nullptr){ z_in=g_in(x); }
-    return minimization_with_constraints(x,y,z_eq,z_in,x_val,max_num_iteration);
+    return minimization_with_constraints(x,y,z_eq,z_in,x_val,max_num_iteration,epsilon,epsilon_inequality,stop_flag);
 }
 #endif // MINIMIZATION_HPP_INCLUDED
