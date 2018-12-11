@@ -16,6 +16,7 @@ namespace Minimization {
     const std::vector<std::function< FuncPtr<double>(const std::vector<FuncPtr<double>>&) >> NO_CONSTRAINT_VEC;
     const std::function< std::vector<FuncPtr<double>>(const std::vector<FuncPtr<double>>&) > NO_CONSTRAINT_FUN=nullptr;
     constexpr unsigned int MAX_NUM_ITERATION=1000;
+    constexpr double EPSILON_SOLVE_HESSIAN_JACOBIAN_EQUATION=1.0e-5;
     constexpr double EPSILON=1.0e-9;
     constexpr double EPSILON_INEQUALITY=1.0e-6;
     static std::atomic<bool> STOP_FLAG(false);
@@ -138,41 +139,62 @@ inline bool Minimization::minimization(
     size_t dim=x.rows();
     MatFuncPtr<double> jac=jacobian<double>(f,dim);
     MatFuncPtr<double> hes=hessian<double>(f,dim);
-    bool flag_deficient=false;
 #ifdef DEBUG
+    std::cout << std::endl << "==Initial==" << std::endl;
     std::cout << "x:" << std::endl << x << std::endl;
-    std::vector<double> x_val(x.data(),x.data()+dim);
-    std::cout << "f(x)=" << (*f)(x_val) << std::endl;
+    std::cout << "f(x)=" << (*f)(x) << std::endl;
 #endif
+    //
+    Eigen::VectorXd delta_x;
     for(unsigned int i=0; !(stop_flag.load())&& i<max_num_iteration; i++){
-        Eigen::MatrixXd jac_val=jac(x);
-        Eigen::MatrixXd hes_val=hes(x);
+#ifdef DEBUG
+        std::cout << std::endl << "==Iteration #" << i << "==" << std::endl;
+#endif // DEBUG
+        const Eigen::MatrixXd jac_val=jac(x);
+        const Eigen::MatrixXd hes_val=hes(x);
+
         /// Calculate delta_x, which satisfies the equation: H delta_x = -jac
-        /// Direct method is calculating this simultaneous equations.
-        Eigen::VectorXd delta_x;
-        auto lu=hes_val.fullPivLu();
-        if(lu.rank()!=(signed int)dim){
-            std::cout << "Warning: rank deficient! rank is " << lu.rank() << " (should be " << dim << ")" << std::endl;
-            flag_deficient=true;
-#ifdef USE_CONJUGATE_GRADIENT
-            /// Avoiding the rank deficient of H, Conjugate Gradient Method will be used for solving the equation "H delta_x = -jac".
+        /// First, calculating this simultaneous equations directly.
+        std::cout << "Direct Method (LU)" << std::endl;
+        Eigen::FullPivLU lu=hes_val.fullPivLu();
+#if 0
+        std::cout << "lu:" << std::endl << lu.matrixLU() << std::endl;
+#endif // DEBUG
+        lu.setThreshold(1.0e-5);
+        delta_x=lu.solve(-jac_val);
+        //
+        if(!(hes_val*delta_x).isApprox(-jac_val, EPSILON_SOLVE_HESSIAN_JACOBIAN_EQUATION)){
+            std::cout << "Conjugate Gradient Method" << std::endl;
             Eigen::ConjugateGradient<Eigen::MatrixXd, Eigen::Lower|Eigen::Upper> cg;
             cg.compute(hes_val);
             delta_x=cg.solve(-jac_val);
-#endif // USE_CONJUGATE_GRADIENT
-        }else{
-            if(flag_deficient){
-                std::cout << "Info: rank becomes sufficient." << std::endl;
-                flag_deficient=false;
+            std::cout << "CG:       #iterations: " << cg.iterations() << ", estimated error: " << cg.error() << std::endl;
+            //
+            if((hes_val*delta_x).isApprox(-jac_val, EPSILON_SOLVE_HESSIAN_JACOBIAN_EQUATION)){
+                std::cout << "Bi Conjugate Gradient STABilized Method" << std::endl;
+                Eigen::BiCGSTAB<Eigen::MatrixXd> bicg;
+                bicg.compute(hes_val);
+                delta_x=bicg.solve(-jac_val);
+                std::cout << "BiCGSTAB:       #iterations: " << bicg.iterations() << ", estimated error: " << bicg.error() << std::endl;
+                if((hes_val*delta_x).isApprox(-jac_val, EPSILON_SOLVE_HESSIAN_JACOBIAN_EQUATION)){
+                    return false;
+                }
             }
-            delta_x=lu.solve(-jac_val);
         }
-        if(delta_x.norm()<epsilon) return true;
+
+        /// update x
+        double norm=delta_x.norm();
+#ifdef DEBUG
+        std::cout << "delta_x:" << std::endl << delta_x << std::endl;
+        std::cout << "delta_x.norm=" << norm << std::endl;
+#endif
+        if(norm<epsilon){
+            return true;
+        }
         x += delta_x;
 #ifdef DEBUG
         std::cout << "x:" << std::endl << x << std::endl;
-        std::vector<double> x_val(x.data(),x.data()+dim);
-        std::cout << "f(x)=" << (*f)(x_val) << std::endl;
+        std::cout << "f(x)=" << (*f)(x) << std::endl;
 #endif
     }
     return false;
