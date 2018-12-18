@@ -3,6 +3,9 @@
 
 #include "AutomaticDifferentiation.hpp"
 #include <eigen3/Eigen/LU>
+#if 1
+#include <eigen3/Eigen/Eigenvalues>
+#endif
 #include <eigen3/Eigen/IterativeLinearSolvers>
 #include <iostream>
 #include <vector>
@@ -16,7 +19,7 @@ namespace Minimization {
     const std::vector<std::function< FuncPtr<double>(const std::vector<FuncPtr<double>>&) >> NO_CONSTRAINT_VEC;
     const std::function< std::vector<FuncPtr<double>>(const std::vector<FuncPtr<double>>&) > NO_CONSTRAINT_FUN=nullptr;
     constexpr unsigned int MAX_NUM_ITERATION=1000;
-    constexpr double EPSILON_SOLVE_HESSIAN_JACOBIAN_EQUATION=1.0e-5;
+    constexpr double EPSILON_SOLVE_HESSIAN_JACOBIAN_EQUATION=2.0e-2;
     constexpr double EPSILON=1.0e-9;
     constexpr double EPSILON_INEQUALITY=1.0e-6;
     static std::atomic<bool> STOP_FLAG(false);
@@ -153,30 +156,44 @@ inline bool Minimization::minimization(
         const Eigen::MatrixXd jac_val=jac(x);
         const Eigen::MatrixXd hes_val=hes(x);
 
+#if 0
+        Eigen::EigenSolver<Eigen::MatrixXd> eigen_hes(hes_val,false);
+        std::cout << "eigenvalues of Hessian: " << std::endl << eigen_hes.eigenvalues() << std::endl;
+#endif
+
         /// Calculate delta_x, which satisfies the equation: H delta_x = -jac
         /// First, calculating this simultaneous equations directly.
         std::cout << "Direct Method (LU)" << std::endl;
         Eigen::FullPivLU lu=hes_val.fullPivLu();
+
 #if 0
-        std::cout << "lu:" << std::endl << lu.matrixLU() << std::endl;
-#endif // DEBUG
+        std::cout << "hes:" << std::endl << hes_val << std::endl;
+        std::cout << "jac:" << std::endl << jac_val << std::endl;
+#endif
+
         lu.setThreshold(1.0e-5);
         delta_x=lu.solve(-jac_val);
         //
-        if(!(hes_val*delta_x).isApprox(-jac_val, EPSILON_SOLVE_HESSIAN_JACOBIAN_EQUATION)){
+        double relative_error=(hes_val*delta_x+jac_val).norm() / jac_val.norm();
+        std::cout << "relative_error=" << relative_error << std::endl;
+        if(!(relative_error<EPSILON_SOLVE_HESSIAN_JACOBIAN_EQUATION)){
             std::cout << "Conjugate Gradient Method" << std::endl;
             Eigen::ConjugateGradient<Eigen::MatrixXd, Eigen::Lower|Eigen::Upper> cg;
             cg.compute(hes_val);
             delta_x=cg.solve(-jac_val);
             std::cout << "CG:       #iterations: " << cg.iterations() << ", estimated error: " << cg.error() << std::endl;
             //
-            if((hes_val*delta_x).isApprox(-jac_val, EPSILON_SOLVE_HESSIAN_JACOBIAN_EQUATION)){
+            relative_error=(hes_val*delta_x+jac_val).norm() / jac_val.norm();
+            std::cout << "relative_error=" << relative_error << std::endl;
+            if(!(cg.error()<EPSILON_SOLVE_HESSIAN_JACOBIAN_EQUATION)){
                 std::cout << "Bi Conjugate Gradient STABilized Method" << std::endl;
                 Eigen::BiCGSTAB<Eigen::MatrixXd> bicg;
                 bicg.compute(hes_val);
                 delta_x=bicg.solve(-jac_val);
                 std::cout << "BiCGSTAB:       #iterations: " << bicg.iterations() << ", estimated error: " << bicg.error() << std::endl;
-                if((hes_val*delta_x).isApprox(-jac_val, EPSILON_SOLVE_HESSIAN_JACOBIAN_EQUATION)){
+                relative_error=(hes_val*delta_x+jac_val).norm() / jac_val.norm();
+                std::cout << "relative_error=" << relative_error << std::endl;
+                if(!(relative_error<EPSILON_SOLVE_HESSIAN_JACOBIAN_EQUATION)){
                     return false;
                 }
             }
