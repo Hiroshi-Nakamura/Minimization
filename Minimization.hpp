@@ -24,6 +24,24 @@ namespace Minimization {
     constexpr double EPSILON_INEQUALITY=1.0e-6;
     static std::atomic<bool> STOP_FLAG(false);
 
+    bool gradient_descent(
+        const FuncPtr<double>& f,
+        Eigen::VectorXd& x,
+        const unsigned int max_num_iteration=MAX_NUM_ITERATION,
+        const double epsilon=EPSILON,
+        std::atomic<bool>& stop_flag=STOP_FLAG);
+
+    /**
+        Variant of minimization() for usability.
+        The first argument is acceptable for std::function.
+    */
+    bool gradient_descent(
+        const std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>& f,
+        Eigen::VectorXd& x_val,
+        const unsigned int max_num_iteration=MAX_NUM_ITERATION,
+        const double epsilon=EPSILON,
+        std::atomic<bool>& stop_flag=STOP_FLAG);
+
     /**
         minimization without any constraints.
     */
@@ -36,7 +54,7 @@ namespace Minimization {
 
     /**
         Variant of minimization() for usability.
-        The second argument is acceptable for std::function.
+        The first argument is acceptable for std::function.
     */
     bool minimization(
         const std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>& f,
@@ -126,11 +144,69 @@ namespace Minimization {
         const double epsilon=EPSILON,
         const double epsilon_inequality=EPSILON_INEQUALITY,
         std::atomic<bool>& stop_flag=STOP_FLAG);
+
+
 }
+
 
 ///
 /// implementation
 ///
+inline bool Minimization::gradient_descent(
+    const FuncPtr<double>& f,
+    Eigen::VectorXd& x,
+    const unsigned int max_num_iteration,
+    const double epsilon,
+    std::atomic<bool>& stop_flag)
+{
+    size_t dim=x.rows();
+    MatFuncPtr<double> jac=jacobian<double>(f,dim);
+    for(unsigned int i=0; !(stop_flag.load()) && i<max_num_iteration; i++){
+        const Eigen::MatrixXd jac_val=jac(x);
+        if(jac_val.norm() < epsilon) return true;
+
+        /// line search
+        const double f_0=(*f)(x);
+        double scale=1.0;
+        Eigen::MatrixXd far_x=x-scale*jac_val;
+        double far_f=(*f)(far_x);
+        while(f_0>far_f){
+            scale *= 2.0;
+            far_x=x+scale*jac_val;
+        }
+
+#ifdef DEBUG
+        std::cout << "x:" << std::endl << x << std::endl;
+        std::cout << "far_x:" << std::endl << far_x << std::endl;
+#endif // DEBUG
+
+        /// Here, f_0 < f_far, then the solution should exist between x and far_x.
+        Eigen::VectorXd near_x=x;
+        while(epsilon < (near_x-far_x).norm() ){
+            Eigen::VectorXd middle_near_x=(2.0*near_x+far_x)/3.0;
+            Eigen::VectorXd middle_far_x=(near_x+2.0*far_x)/3.0;
+            if((*f)(middle_near_x)<(*f)(middle_far_x)){
+                far_x=middle_far_x;
+            }else{
+                near_x=middle_near_x;
+            }
+        }
+        x=(near_x+far_x)/2.0;
+    }
+    return false;
+}
+
+inline bool Minimization::gradient_descent(
+    const std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>& f,
+    Eigen::VectorXd& x_val,
+    const unsigned int max_num_iteration,
+    const double epsilon,
+    std::atomic<bool>& stop_flag)
+{
+    size_t dim=x_val.rows();
+    FuncPtr<double> y=f(createVariables<double>(dim));
+    return gradient_descent(y,x_val,max_num_iteration,epsilon,stop_flag);
+}
 
 inline bool Minimization::minimization(
     const FuncPtr<double>& f,
