@@ -24,10 +24,17 @@ int main(int argc, char** argv)
     using namespace Minimization;
     try{
         {
-            std::cout << "without_constraint:" << std::endl;
+            std::cout << "Newton method, without_constraint:" << std::endl;
             Eigen::VectorXd x_val(3);
             x_val << 0.0, 0.0, 0.0;
             minimization(f<FuncPtr<double>>,x_val);
+            std::cout << x_val << std::endl;
+        }
+        {
+            std::cout << "Gradient Descent method, without_constraint:" << std::endl;
+            Eigen::VectorXd x_val(3);
+            x_val << 0.0, 0.0, 0.0;
+            gradient_descent(f<FuncPtr<double>>,x_val);
             std::cout << x_val << std::endl;
         }
         {
