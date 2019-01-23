@@ -3,9 +3,10 @@
 
 #include "AutomaticDifferentiation.hpp"
 #include <eigen3/Eigen/LU>
-#if 1
+#if 0
 #include <eigen3/Eigen/Eigenvalues>
 #endif
+#include <eigen3/Eigen/SVD>
 #include <eigen3/Eigen/IterativeLinearSolvers>
 #include <iostream>
 #include <vector>
@@ -19,7 +20,7 @@ namespace Minimization {
     const std::vector<std::function< FuncPtr<double>(const std::vector<FuncPtr<double>>&) >> NO_CONSTRAINT_VEC;
     const std::function< std::vector<FuncPtr<double>>(const std::vector<FuncPtr<double>>&) > NO_CONSTRAINT_FUN=nullptr;
     constexpr unsigned int MAX_NUM_ITERATION=1000;
-    constexpr double EPSILON_SOLVE_HESSIAN_JACOBIAN_EQUATION=2.0e-2;
+    constexpr double EPSILON_SOLVE_HESSIAN_JACOBIAN_EQUATION=1.0e-1;
     constexpr double EPSILON=1.0e-9;
     constexpr double EPSILON_INEQUALITY=1.0e-6;
     static std::atomic<bool> STOP_FLAG(false);
@@ -38,6 +39,13 @@ namespace Minimization {
     bool gradient_descent(
         const std::function<FuncPtr<double>(const std::vector<FuncPtr<double>>&)>& f,
         Eigen::VectorXd& x_val,
+        const unsigned int max_num_iteration=MAX_NUM_ITERATION,
+        const double epsilon=EPSILON,
+        std::atomic<bool>& stop_flag=STOP_FLAG);
+
+    bool newton(
+        const FuncPtr<double>& f,
+        Eigen::VectorXd& x,
         const unsigned int max_num_iteration=MAX_NUM_ITERATION,
         const double epsilon=EPSILON,
         std::atomic<bool>& stop_flag=STOP_FLAG);
@@ -164,7 +172,9 @@ inline bool Minimization::gradient_descent(
     for(unsigned int i=0; !(stop_flag.load()) && i<max_num_iteration; i++){
         const Eigen::MatrixXd jac_val=jac(x);
         if(jac_val.norm() < epsilon) return true;
-
+#ifdef DEBUG
+        std::cout << "jac_val:" << std::endl << jac_val << std::endl;
+#endif // DEBUG
         /// line search
         const double f_0=(*f)(x);
         double scale=1.0;
@@ -172,7 +182,11 @@ inline bool Minimization::gradient_descent(
         double far_f=(*f)(far_x);
         while(f_0>far_f){
             scale *= 2.0;
-            far_x=x+scale*jac_val;
+            far_x=x-scale*jac_val;
+            far_f=(*f)(far_x);
+#ifdef DEBUG
+        std::cout << "far_f:" << far_f << std::endl;
+#endif // DEBUG
         }
 
 #ifdef DEBUG
@@ -190,8 +204,15 @@ inline bool Minimization::gradient_descent(
             }else{
                 near_x=middle_near_x;
             }
+#ifdef DEBUG
+            std::cout << "near_x:" << std::endl << near_x << std::endl;
+            std::cout << "far_x:" << std::endl << far_x << std::endl;
+#endif // DEBUG
         }
         x=(near_x+far_x)/2.0;
+#ifdef DEBUG
+        std::cout << "x:" << std::endl << x << std::endl;
+#endif // DEBUG
     }
     return false;
 }
@@ -208,7 +229,7 @@ inline bool Minimization::gradient_descent(
     return gradient_descent(y,x_val,max_num_iteration,epsilon,stop_flag);
 }
 
-inline bool Minimization::minimization(
+inline bool Minimization::newton(
     const FuncPtr<double>& f,
     Eigen::VectorXd& x,
     const unsigned int max_num_iteration,
@@ -225,6 +246,7 @@ inline bool Minimization::minimization(
 #endif
     //
     Eigen::VectorXd delta_x;
+    double pre_f_val=(*f)(x);
     for(unsigned int i=0; !(stop_flag.load())&& i<max_num_iteration; i++){
 #ifdef DEBUG
         std::cout << std::endl << "==Iteration #" << i << "==" << std::endl;
@@ -232,26 +254,50 @@ inline bool Minimization::minimization(
         const Eigen::MatrixXd jac_val=jac(x);
         const Eigen::MatrixXd hes_val=hes(x);
 
+        double jac_norm=jac_val.norm();
+#ifdef DEBUG
+        std::cout << "jac_norm=" << jac_norm << std::endl;
+#endif // DEBUG
+        if(jac_norm < epsilon){
+            std::cout << "Converge: jac_norm=" << jac_norm << std::endl;
+            return true;
+        }
+
 #if 0
-        Eigen::EigenSolver<Eigen::MatrixXd> eigen_hes(hes_val,false);
+        Eigen::EigenSolver<Eigen::MatrixXd> eigen_hes(hes_val,true);
         std::cout << "eigenvalues of Hessian: " << std::endl << eigen_hes.eigenvalues() << std::endl;
 #endif
+
+
+#if 0
+        std::cout << "Direct Method (SDV)" << std::endl;
+        Eigen::JacobiSVD<Eigen::MatrixXd> svd(hes_val,Eigen::ComputeFullU | Eigen::ComputeFullV);
+//        std::cout << "U:" << std::endl << svd.matrixU() << std::endl;
+//        std::cout << "V:" << std::endl << svd.matrixV() << std::endl;
+        const auto U=svd.matrixU();
+        const auto UT=U.transpose();
+        const auto lamda=svd.singularValues();
+        std::cout << "lamda:" << std::endl << lamda << std::endl;
+        delta_x = -UT*jac_val;
+        std::cout << "-UT*jac_val:" << std::endl << delta_x << std::endl;
+        for(Eigen::Index i=0; i<delta_x.rows(); i++){
+            delta_x[i] /= lamda[i];
+        }
+        std::cout << "UT*delta_x:" << std::endl << delta_x << std::endl;
+        delta_x = U*delta_x;
+#else
 
         /// Calculate delta_x, which satisfies the equation: H delta_x = -jac
         /// First, calculating this simultaneous equations directly.
         std::cout << "Direct Method (LU)" << std::endl;
         Eigen::FullPivLU lu=hes_val.fullPivLu();
-
-#if 0
-        std::cout << "hes:" << std::endl << hes_val << std::endl;
-        std::cout << "jac:" << std::endl << jac_val << std::endl;
-#endif
-
         lu.setThreshold(1.0e-5);
         delta_x=lu.solve(-jac_val);
+#endif
         //
         double relative_error=(hes_val*delta_x+jac_val).norm() / jac_val.norm();
         std::cout << "relative_error=" << relative_error << std::endl;
+#if 0
         if(!(relative_error<EPSILON_SOLVE_HESSIAN_JACOBIAN_EQUATION)){
             std::cout << "Conjugate Gradient Method" << std::endl;
             Eigen::ConjugateGradient<Eigen::MatrixXd, Eigen::Lower|Eigen::Upper> cg;
@@ -274,23 +320,52 @@ inline bool Minimization::minimization(
                 }
             }
         }
-
+#endif
         /// update x
-        double norm=delta_x.norm();
+        double delta_x_norm=delta_x.norm();
 #ifdef DEBUG
         std::cout << "delta_x:" << std::endl << delta_x << std::endl;
-        std::cout << "delta_x.norm=" << norm << std::endl;
+        std::cout << "delta_x.norm=" << delta_x_norm << std::endl;
 #endif
-        if(norm<epsilon){
+        if(delta_x_norm<epsilon){
+            std::cout << "Converge: delta_x.norm=" << delta_x_norm << std::endl;
             return true;
         }
         x += delta_x;
+
+        if(pre_f_val<(*f)(x)){
+#if 0
+            /// if the new x is local maxmum, then go back inverse direction.
+            std::cout << "go back inverse direction" << std::endl;
+            x -= 1.1*delta_x;
+            if(pre_f_val<(*f)(x)){
+                std::cout << "Going both of forward and backward increases f value." << std::endl;
+                return false;
+            }
+#else
+            std::cout << "Not Converge: increasing! new f value: " << (*f)(x) << std::endl << "old value: " << pre_f_val << std::endl;
+            return false;
+#endif
+        }
+
+        pre_f_val=(*f)(x);
 #ifdef DEBUG
         std::cout << "x:" << std::endl << x << std::endl;
         std::cout << "f(x)=" << (*f)(x) << std::endl;
 #endif
     }
+    std::cout << "iteration over" << std::endl;
     return false;
+}
+
+inline bool Minimization::minimization(
+    const FuncPtr<double>& f,
+    Eigen::VectorXd& x,
+    const unsigned int max_num_iteration,
+    const double epsilon,
+    std::atomic<bool>& stop_flag)
+{
+    return newton(f,x,max_num_iteration,epsilon,stop_flag);
 }
 
 inline bool Minimization::minimization(
