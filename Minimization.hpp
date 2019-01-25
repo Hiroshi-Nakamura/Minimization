@@ -331,24 +331,19 @@ inline bool Minimization::newton(
             std::cout << "Converge: delta_x.norm=" << delta_x_norm << std::endl;
             return true;
         }
-        x += delta_x;
 
-        if(pre_f_val<(*f)(x)){
-#if 0
-            /// if the new x is local maxmum, then go back inverse direction.
-            std::cout << "go back inverse direction" << std::endl;
-            x -= 1.1*delta_x;
-            if(pre_f_val<(*f)(x)){
-                std::cout << "Going both of forward and backward increases f value." << std::endl;
-                return false;
-            }
-#else
-            std::cout << "Not Converge: increasing! new f value: " << (*f)(x) << std::endl << "old value: " << pre_f_val << std::endl;
+        double new_f_val=(*f)(x+delta_x);
+        if(pre_f_val<new_f_val){
+            std::cout << "Not Converge: increasing!" << std::endl
+            << "new f value: " << new_f_val << std::endl
+            << "old value: " << pre_f_val << std::endl
+            << "x+delta_x:" << std::endl
+            << x+delta_x << std::endl;
             return false;
-#endif
         }
+        x += delta_x;
+        pre_f_val=new_f_val;
 
-        pre_f_val=(*f)(x);
 #ifdef DEBUG
         std::cout << "x:" << std::endl << x << std::endl;
         std::cout << "f(x)=" << (*f)(x) << std::endl;
