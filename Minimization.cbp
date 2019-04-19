@@ -15,6 +15,7 @@
 					<Add option="-O2" />
 					<Add option="-std=c++1z" />
 					<Add option="-DUSE_CONJUGATE_GRADIENT" />
+					<Add option="-DDEBUG" />
 				</Compiler>
 				<Linker>
 					<Add option="-s" />
